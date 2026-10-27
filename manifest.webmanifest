@@ -1,0 +1,12 @@
+{
+  "name": "繳費提醒",
+  "short_name": "繳費提醒",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f4ee",
+  "theme_color": "#2e7d5b",
+  "lang": "zh-Hant",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

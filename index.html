@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>繳費提醒</title>
+<meta name="theme-color" content="#2e7d5b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="繳費提醒">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+/* 給長輩用：字大、按鈕大、一個畫面只做一件事。 */
+:root {
+  --bg: #f6f4ee; --card: #ffffff; --ink: #1f2a24; --soft: #5c6b62; --line: #e2ded3;
+  --green: #2e7d5b; --green-soft: #e3f1e9; --red: #c0392b; --red-soft: #fbe7e4;
+  --amber: #b7791f; --amber-soft: #fdf3dc;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 20px/1.5 -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: 16px 16px 120px; }
+h1 { font-size: 28px; margin: 8px 0 4px; }
+h2 { font-size: 22px; margin: 28px 0 10px; color: var(--soft); }
+.sub { color: var(--soft); margin: 0 0 8px; }
+.banner { background: var(--amber-soft); color: var(--amber); border-radius: 12px; padding: 10px 14px; font-size: 17px; margin-bottom: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; }
+.card .info { flex: 1; min-width: 0; }
+.card .name { font-size: 22px; font-weight: 600; }
+.card .meta { color: var(--soft); font-size: 17px; }
+.card.overdue { border-color: var(--red); background: var(--red-soft); }
+.card.today { border-color: var(--amber); background: var(--amber-soft); }
+.tag { display: inline-block; font-size: 15px; padding: 1px 8px; border-radius: 99px; background: var(--green-soft); color: var(--green); margin-left: 6px; vertical-align: 2px; }
+.tag.red { background: var(--red); color: #fff; }
+button { font: inherit; border: 0; border-radius: 14px; cursor: pointer; }
+.pay { background: var(--green); color: #fff; padding: 12px 18px; font-size: 20px; font-weight: 600; min-width: 92px; }
+.ghost { background: transparent; color: var(--green); padding: 10px 12px; }
+.empty { color: var(--soft); text-align: center; padding: 24px 0; }
+.todo { background: var(--amber-soft); border-radius: 14px; padding: 12px 16px; color: var(--amber); }
+.done .name { color: var(--soft); text-decoration: line-through; }
+nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); display: flex; padding-bottom: env(safe-area-inset-bottom); }
+nav button { flex: 1; background: none; padding: 14px 0; font-size: 19px; color: var(--soft); }
+nav button.on { color: var(--green); font-weight: 700; }
+dialog { border: 0; border-radius: 20px; padding: 20px; width: min(560px, calc(100% - 24px)); max-height: 90vh; }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+label { display: block; margin: 12px 0 4px; color: var(--soft); font-size: 17px; }
+input, select, textarea { font: inherit; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.row { display: flex; gap: 10px; margin-top: 18px; }
+.row button { flex: 1; padding: 14px; font-size: 20px; }
+.primary { background: var(--green); color: #fff; font-weight: 600; }
+.secondary { background: var(--line); color: var(--ink); }
+.hint { font-size: 15px; color: var(--soft); margin-top: 4px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav id="nav" hidden>
+  <button data-view="home" class="on">要繳的</button>
+  <button data-view="bills">全部帳單</button>
+  <button data-view="history">已繳紀錄</button>
+</nav>
+
+<dialog id="payDlg">
+  <form method="dialog" id="payForm">
+    <h2 id="payTitle" style="margin-top:0;color:var(--ink)"></h2>
+    <p class="sub" id="paySub"></p>
+    <label for="payAmount">這次繳了多少錢？（可以不填）</label>
+    <input id="payAmount" type="number" inputmode="numeric" min="0" placeholder="例如 3200">
+    <div class="row">
+      <button value="cancel" class="secondary">取消</button>
+      <button value="ok" class="primary">繳好了</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="billDlg">
+  <form method="dialog" id="billForm"></form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const CATEGORY = { credit_card: '信用卡', interest: '利息', rent: '房租', water: '水費', electricity: '電費', gas: '瓦斯費', phone: '電話', other: '其他' };
+const cfg = window.APP_CONFIG || {};
+const DEMO = !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ---------- 日期工具（一律用本地日期字串 YYYY-MM-DD，避免時區偏移） ----------
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const todayStr = () => ymd(new Date());
+const daysBetween = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
+const lastDay = (y, m) => new Date(y, m + 1, 0).getDate();
+const onDay = (y, m, d) => new Date(y, m, Math.min(d, lastDay(y, m)));   // 31 號遇到小月取月底
+const fmtDate = s => { const d = parse(s); return `${d.getMonth() + 1}/${d.getDate()}（${'日一二三四五六'[d.getDay()]}）`; };
+
+// 帳單規則 → 指定區間內的每一期到期日
+function occurrences(bill, from, to) {
+  const out = [], f = parse(from), t = parse(to);
+  if (bill.due_type === 'monthly_day' && bill.due_day) {
+    for (let y = f.getFullYear(), m = f.getMonth(); new Date(y, m, 1) <= t; m++) {
+      if (m > 11) { m = 0; y++; }
+      const d = onDay(y, m, bill.due_day);
+      if (d >= f && d <= t) out.push(ymd(d));
+    }
+  } else if (bill.due_type === 'every_n_months' && bill.anchor_date) {
+    const a = parse(bill.anchor_date), n = bill.interval_months || 2;
+    for (let k = -24; k <= 24; k++) {
+      const d = onDay(a.getFullYear(), a.getMonth() + k * n, a.getDate());
+      if (d >= f && d <= t) out.push(ymd(d));
+    }
+  }
+  return out;
+}
+const needsInfo = b => (b.due_type === 'monthly_day' && !b.due_day) || (b.due_type === 'every_n_months' && !b.anchor_date) || b.due_type === 'manual';
+const billLabel = b => b.location ? `${b.name}・${b.location}` : b.name;
+
+// ---------- 資料層：示範模式（localStorage）或 Supabase，介面相同 ----------
+function demoSeed() {
+  // 通用範例資料（不放真實帳單；真實資料在資料庫裡）
+  const bills = [
+    { name: '範例信用卡 A', category: 'credit_card', due_type: 'monthly_day', due_day: 15, statement_day: 1 },
+    { name: '範例信用卡 B', category: 'credit_card', due_type: 'monthly_day', due_day: 5, statement_day: 20, note: '隔月繳' },
+    { name: '房租', category: 'rent', location: '範例地址', due_type: 'monthly_day', due_day: 1, amount_type: 'fixed', default_amount: 15000 },
+    { name: '電費', category: 'electricity', location: '範例地址', due_type: 'every_n_months', interval_months: 2, anchor_date: null },
+    { name: '手機費', category: 'phone', due_type: 'monthly_day', due_day: null }
+  ];
+  const created = todayStr();
+  return { bills: bills.map(b => ({ id: crypto.randomUUID(), active: true, interval_months: 1, amount_type: 'variable', created_at: created, ...b })), payments: [] };
+}
+const demoStore = {
+  load() { try { return JSON.parse(localStorage.getItem('bills-demo')) || null; } catch { return null; } },
+  save(db) { try { localStorage.setItem('bills-demo', JSON.stringify(db)); } catch {} },
+  db: null,
+  async init() { this.db = this.load() || demoSeed(); this.save(this.db); return true; },
+  async bills() { return this.db.bills.filter(b => b.active); },
+  async payments() { return this.db.payments; },
+  async pay(bill_id, due_date, amount) { this.db.payments = this.db.payments.filter(p => !(p.bill_id === bill_id && p.due_date === due_date)); this.db.payments.push({ id: crypto.randomUUID(), bill_id, due_date, amount, status: 'paid', paid_at: new Date().toISOString() }); this.save(this.db); },
+  async unpay(id) { this.db.payments = this.db.payments.filter(p => p.id !== id); this.save(this.db); },
+  async saveBill(b) { if (b.id) Object.assign(this.db.bills.find(x => x.id === b.id), b); else this.db.bills.push({ ...b, id: crypto.randomUUID(), active: true, created_at: todayStr() }); this.save(this.db); },
+  async removeBill(id) { this.db.bills.find(x => x.id === id).active = false; this.save(this.db); }
+};
+const sb = DEMO ? null : supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+const cloudStore = {
+  async init() { const { data } = await sb.auth.getSession(); return !!data.session; },
+  async bills() { const { data, error } = await sb.from('bills').select('*').eq('active', true).order('created_at'); if (error) throw error; return data; },
+  async payments() { const { data, error } = await sb.from('payments').select('*').order('due_date', { ascending: false }).limit(500); if (error) throw error; return data; },
+  async pay(bill_id, due_date, amount) { const { error } = await sb.from('payments').upsert({ bill_id, due_date, amount, status: 'paid', paid_at: new Date().toISOString() }, { onConflict: 'bill_id,due_date' }); if (error) throw error; },
+  async unpay(id) { const { error } = await sb.from('payments').delete().eq('id', id); if (error) throw error; },
+  async saveBill(b) { const { id, created_at, user_id, ...fields } = b; const q = id ? sb.from('bills').update(fields).eq('id', id) : sb.from('bills').insert(fields); const { error } = await q; if (error) throw error; },
+  async removeBill(id) { const { error } = await sb.from('bills').update({ active: false }).eq('id', id); if (error) throw error; }
+};
+const store = DEMO ? demoStore : cloudStore;
+
+// ---------- 畫面 ----------
+let view = 'home', BILLS = [], PAYS = [];
+async function refresh() {
+  try { [BILLS, PAYS] = await Promise.all([store.bills(), store.payments()]); }
+  catch (e) { $('#app').innerHTML = `<p class="banner">讀取失敗：${esc(e.message)}</p>`; return; }
+  render();
+}
+function render() {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  const head = DEMO ? '<div class="banner">示範模式：資料只存在這台裝置，還沒連上資料庫。</div>' : '';
+  $('#app').innerHTML = head + ({ home: homeView, bills: billsView, history: historyView }[view])();
+}
+
+function homeView() {
+  const today = todayStr(), paid = new Set(PAYS.map(p => p.bill_id + '|' + p.due_date));
+  const back = ymd(new Date(Date.now() - 60 * 86400000)), ahead = ymd(new Date(Date.now() + 31 * 86400000));
+  const items = [];
+  for (const b of BILLS) {
+    const start = b.created_at && b.created_at.slice(0, 10) > back ? b.created_at.slice(0, 10) : back;  // 建立前的期數不算逾期
+    for (const due of occurrences(b, start, ahead)) if (!paid.has(b.id + '|' + due)) items.push({ b, due, days: daysBetween(today, due) });
+  }
+  items.sort((x, y) => x.due.localeCompare(y.due));
+  const card = ({ b, due, days }) => {
+    const cls = days < 0 ? 'overdue' : days === 0 ? 'today' : '';
+    const when = days < 0 ? `<span class="tag red">過期 ${-days} 天</span>` : days === 0 ? '<span class="tag red">今天</span>' : `<span class="tag">${days} 天後</span>`;
+    const amt = b.default_amount ? `・約 ${Number(b.default_amount).toLocaleString()} 元` : '';
+    return `<div class="card ${cls}"><div class="info"><div class="name">${esc(billLabel(b))}${when}</div><div class="meta">${fmtDate(due)} 截止${amt}</div></div><button class="pay" data-pay="${b.id}|${due}">繳了</button></div>`;
+  };
+  const late = items.filter(i => i.days <= 7), later = items.filter(i => i.days > 7);
+  const missing = BILLS.filter(needsInfo).length;
+  return `<h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p>
+    ${missing ? `<div class="todo">還有 ${missing} 筆帳單沒有繳款日，<button class="ghost" data-go="bills">去補資料 ›</button></div>` : ''}
+    <h2>這 7 天內</h2>${late.length ? late.map(card).join('') : '<div class="empty">這 7 天沒有要繳的 🎉</div>'}
+    <h2>之後一個月</h2>${later.length ? later.map(card).join('') : '<div class="empty">沒有</div>'}`;
+}
+
+function billsView() {
+  const groups = {};
+  for (const b of BILLS) (groups[CATEGORY[b.category] || '其他'] ||= []).push(b);
+  const rule = b => needsInfo(b) ? '<span class="tag red">待補</span>'
+    : b.due_type === 'monthly_day' ? `每月 ${b.due_day} 號` : `每 ${b.interval_months} 個月，從 ${fmtDate(b.anchor_date)} 起算`;
+  return `<h1>全部帳單</h1><p class="sub">點一筆可以修改。共 ${BILLS.length} 筆。</p>` +
+    Object.entries(groups).map(([g, list]) => `<h2>${esc(g)}</h2>` + list.map(b =>
+      `<div class="card" data-edit="${b.id}" style="cursor:pointer"><div class="info"><div class="name">${esc(billLabel(b))}</div><div class="meta">${rule(b)}${b.note ? '・' + esc(b.note) : ''}</div></div><span style="color:var(--soft)">›</span></div>`).join('')).join('') +
+    `<div class="row"><button class="primary" data-edit="">＋ 新增帳單</button></div>` +
+    (DEMO ? '' : `<div class="row"><button class="secondary" id="logout">登出</button></div>`);
+}
+
+function historyView() {
+  const byId = Object.fromEntries(BILLS.map(b => [b.id, b]));
+  const list = PAYS.filter(p => byId[p.bill_id]).sort((a, b) => b.due_date.localeCompare(a.due_date)).slice(0, 60);
+  return `<h1>已繳紀錄</h1>` + (list.length ? list.map(p => `<div class="card done"><div class="info"><div class="name">${esc(billLabel(byId[p.bill_id]))}</div><div class="meta">${fmtDate(p.due_date)} 那期${p.amount ? `・${Number(p.amount).toLocaleString()} 元` : ''}</div></div><button class="ghost" data-unpay="${p.id}">按錯了</button></div>`).join('') : '<div class="empty">還沒有紀錄</div>');
+}
+
+// ---------- 繳費 ----------
+let payTarget = null;
+function openPay(billId, due) {
+  const b = BILLS.find(x => x.id === billId); payTarget = { b, due };
+  $('#payTitle').textContent = billLabel(b); $('#paySub').textContent = `${fmtDate(due)} 截止的這一期`;
+  $('#payAmount').value = b.amount_type === 'fixed' && b.default_amount ? b.default_amount : '';
+  $('#payDlg').showModal();
+}
+$('#payDlg').addEventListener('close', async () => {
+  if ($('#payDlg').returnValue !== 'ok' || !payTarget) return;
+  const amt = $('#payAmount').value ? Number($('#payAmount').value) : null;
+  try {
+    await store.pay(payTarget.b.id, payTarget.due, amt);
+    if (amt && !payTarget.b.default_amount) await store.saveBill({ ...payTarget.b, default_amount: amt });  // 第一次填的金額當參考
+  } catch (e) { alert('存檔失敗：' + e.message); }
+  refresh();
+});
+
+// ---------- 編輯帳單 ----------
+function openBill(id) {
+  const b = BILLS.find(x => x.id === id) || { category: 'other', due_type: 'monthly_day', interval_months: 1, amount_type: 'variable' };
+  const opt = (obj, cur) => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v}</option>`).join('');
+  $('#billForm').innerHTML = `
+    <h2 style="margin-top:0;color:var(--ink)">${id ? '修改帳單' : '新增帳單'}</h2>
+    <label>名稱</label><input name="name" required value="${esc(b.name)}">
+    <label>類別</label><select name="category">${opt(CATEGORY, b.category)}</select>
+    <label>地址（房租、水電用來分辨）</label><input name="location" value="${esc(b.location)}" placeholder="例如 某某路">
+    <label>多久繳一次</label><select name="due_type">${opt({ monthly_day: '每個月', every_n_months: '每兩個月' }, b.due_type === 'manual' ? 'monthly_day' : b.due_type)}</select>
+    <div data-show="monthly_day"><label>每月幾號截止</label><input name="due_day" type="number" min="1" max="31" inputmode="numeric" value="${b.due_day ?? ''}" placeholder="不知道可以先空著"></div>
+    <div data-show="every_n_months"><label>最近一期的截止日</label><input name="anchor_date" type="date" value="${b.anchor_date ?? ''}"><div class="hint">看帳單上的日期填一次，之後系統自動每兩個月往後算。</div></div>
+    <label>金額</label><select name="amount_type">${opt({ variable: '每期不一樣', fixed: '每期一樣' }, b.amount_type)}</select>
+    <label>大約金額（元）</label><input name="default_amount" type="number" min="0" inputmode="numeric" value="${b.default_amount ?? ''}">
+    <label>怎麼繳</label><input name="pay_method" value="${esc(b.pay_method)}" placeholder="例如 自動扣款、超商">
+    <label>卡號末四碼或門號末幾碼（不要填完整號碼）</label><input name="account_hint" maxlength="6" value="${esc(b.account_hint)}">
+    <label>備註</label><input name="note" value="${esc(b.note)}">
+    <div class="row"><button value="cancel" class="secondary" formnovalidate>取消</button><button value="ok" class="primary">儲存</button></div>
+    ${id ? '<div class="row"><button value="delete" class="secondary" formnovalidate style="color:var(--red)">不用再繳了，刪除</button></div>' : ''}`;
+  const sync = () => $('#billForm').querySelectorAll('[data-show]').forEach(el => el.hidden = el.dataset.show !== $('#billForm').due_type.value);
+  $('#billForm').due_type.onchange = sync; sync();
+  $('#billDlg').dataset.id = id || ''; $('#billDlg').showModal();
+}
+$('#billDlg').addEventListener('close', async () => {
+  const rv = $('#billDlg').returnValue, id = $('#billDlg').dataset.id, f = $('#billForm');
+  try {
+    if (rv === 'delete') { if (confirm('確定不再提醒這筆帳單？')) await store.removeBill(id); }
+    else if (rv === 'ok') {
+      const num = v => v === '' ? null : Number(v), txt = v => v.trim() || null;
+      const base = BILLS.find(x => x.id === id) || {};
+      const due_type = f.due_type.value;
+      await store.saveBill({ ...base, name: f.name.value.trim(), category: f.category.value, location: txt(f.location.value), due_type,
+        due_day: num(f.due_day.value), anchor_date: f.anchor_date.value || null, interval_months: due_type === 'every_n_months' ? 2 : 1,
+        amount_type: f.amount_type.value, default_amount: num(f.default_amount.value), pay_method: txt(f.pay_method.value),
+        account_hint: txt(f.account_hint.value), note: txt(f.note.value) });
+    } else return;
+  } catch (e) { alert('存檔失敗：' + e.message); }
+  refresh();
+});
+
+// ---------- 事件 ----------
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-pay],[data-edit],[data-unpay],[data-go],#logout,nav button');
+  if (!t) return;
+  if (t.dataset.pay) { const [id, due] = t.dataset.pay.split('|'); openPay(id, due); }
+  else if (t.dataset.edit !== undefined) openBill(t.dataset.edit);
+  else if (t.dataset.unpay) { if (confirm('把這筆改回「還沒繳」？')) { await store.unpay(t.dataset.unpay); refresh(); } }
+  else if (t.dataset.go) { view = t.dataset.go; render(); }
+  else if (t.id === 'logout') { await sb.auth.signOut(); location.reload(); }
+  else if (t.dataset.view) { view = t.dataset.view; render(); scrollTo(0, 0); }
+});
+
+// ---------- 登入（email 登入連結，不用記密碼） ----------
+function loginView() {
+  $('#app').innerHTML = `<h1>繳費提醒</h1><p class="sub">輸入 email，我們會寄一封登入信給您，點信裡的連結就能進來。</p>
+    <form id="login"><label for="email">Email</label><input id="email" type="email" required autocomplete="email">
+    <div class="row"><button class="primary">寄登入信</button></div></form><p id="msg" class="sub"></p>`;
+  $('#login').onsubmit = async e => {
+    e.preventDefault();
+    const { error } = await sb.auth.signInWithOtp({ email: $('#email').value.trim(), options: { emailRedirectTo: location.origin + location.pathname } });
+    $('#msg').textContent = error ? '寄送失敗：' + error.message : '已寄出，請到信箱點連結。';
+  };
+}
+(async () => {
+  if (!DEMO) sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' && $('#nav').hidden) location.reload(); });
+  if (await store.init()) { $('#nav').hidden = false; refresh(); } else loginView();
+})();
+</script>
+</body>
+</html>
