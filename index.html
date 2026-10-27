@@ -110,16 +110,26 @@ input, select { font: inherit; font-size: 18px; width: 100%; padding: 12px 14px;
 .secondary { background: rgba(0,0,0,.07); color: var(--ink); }
 .hint { font-size: 14px; color: var(--soft); margin-top: 4px; }
 
-/* 主要按鈕：漸層發光（參考 Edison 提供的 outer-cont）。手機沒有 hover，所以按下時發光。 */
-.primary, .card .pay, .ob-bottom .primary { position: relative; isolation: isolate; border: none; color: #fff; font-weight: 600;
-  background: linear-gradient(90deg, #5bfcc4, #f593e4, #71a4f0); border-radius: 14px; text-shadow: 1px 1px 1px #000;
-  box-shadow: inset 0 0 5px #ffffffa9, inset 0 35px 30px #000, 0 5px 10px #000000cc; transition: all .3s ease; }
-.primary::before, .card .pay::before { content: ""; position: absolute; inset: 0; margin: auto; border-radius: 14px; z-index: -1; filter: blur(0);
-  background: conic-gradient(#00000000 80deg, #40baf7, #f34ad7, #5bfcc4, #00000000 280deg); transition: all .3s ease; }
-.primary:hover::before, .card .pay:hover::before, .primary:focus-visible::before, .card .pay:focus-visible::before { filter: blur(15px); }
-.primary:active::before, .card .pay:active::before { filter: blur(5px); transform: translateY(1px); }
-.primary:active, .card .pay:active { box-shadow: inset 0 0 5px #ffffffa9, inset 0 35px 30px #000; transform: translateY(3px); }
-.primary:disabled { filter: grayscale(.6); }
+/* 按鈕：統一用 Edison 提供的深藍紫漸層樣式；圖示旋轉、文字右滑。手機沒有 hover，按下時也觸發。
+   主要＝.primary／.pay／.theme-btn／#dashEdit；次要＝.secondary（同形狀、淺色底）。圖示與文字外框由下方 fxButtons() 自動補上。 */
+.primary, .pay, .secondary, .theme-btn, #dashEdit, .hero .pay {
+  display: inline-flex; align-items: center; justify-content: center; font-family: inherit; cursor: pointer; font-weight: 500; letter-spacing: .05em;
+  padding: .7em 1.3em .7em .9em; border: none; border-radius: 16px; text-shadow: none; box-shadow: 0 4px 14px rgba(15, 12, 41, .25);
+  color: #fff; background: #ad5389; background: linear-gradient(to right, #0f0c29, #302b63, #24243e); transition: transform .2s ease, box-shadow .2s ease; }
+.secondary { color: var(--ink); background: rgba(48, 43, 99, .08); box-shadow: none; }
+.hero .pay { background: linear-gradient(to right, #0f0c29, #302b63, #24243e); color: #fff; }
+.primary .fx-i, .pay .fx-i, .secondary .fx-i, .theme-btn .fx-i, #dashEdit .fx-i { display: inline-flex; margin-right: 3px; transform: rotate(30deg); transition: transform .5s cubic-bezier(.76, 0, .24, 1); }
+.fx-i svg { width: 1.05em; height: 1.05em; }
+.fx-t { white-space: nowrap; transition: transform .5s cubic-bezier(.76, 0, .24, 1); }
+/* 只有紙飛機照原版斜 30 度、按下轉 90 度；勾勾、叉叉等轉了會看錯（叉變加號），改成輕輕擺動 */
+.fx-i:not([data-i=send]) { transform: none !important; }
+:is(.primary, .pay, .secondary, .theme-btn, #dashEdit):is(:hover, :active, :focus-visible) .fx-i:not([data-i=send]) { transform: translateX(5px) rotate(-12deg) !important; }
+:is(.primary, .pay, .secondary, .theme-btn, #dashEdit):is(:hover, :active, :focus-visible) .fx-i { transform: translateX(5px) rotate(90deg); }
+:is(.primary, .pay, .secondary, .theme-btn, #dashEdit):is(:hover, :active, :focus-visible) .fx-t { transform: translateX(7px); }
+:is(.primary, .pay, .secondary, .theme-btn, #dashEdit):active { transform: translateY(1px); }
+.primary:disabled { opacity: .45; }
+html[data-theme=dark] .secondary, html[data-theme=dark] .dash-head #dashEdit.secondary { background: rgba(255, 255, 255, .1); color: var(--ink); }
+html[data-theme=dark] .primary, html[data-theme=dark] .pay, html[data-theme=dark] .theme-btn, html[data-theme=dark] #dashEdit { background: linear-gradient(to right, #2a2470, #4b43a0, #38386a); }
 
 /* 輸入欄位：聚焦時漸層光圈＋微微浮起 */
 input:not([type=checkbox]), select { transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease, background .25s ease; }
@@ -212,8 +222,7 @@ html[data-theme=dark] input:not([type=checkbox]), html[data-theme=dark] select {
 html[data-theme=dark] input:not([type=checkbox]):focus, html[data-theme=dark] select:focus { background: linear-gradient(#23252a, #23252a) padding-box, linear-gradient(90deg, #5bfcc4, #f593e4, #71a4f0) border-box; }
 html[data-theme=dark] input:not([type=checkbox]):not(:placeholder-shown):not(:focus) { background: #26232a; border-color: rgba(255,125,155,.35); }
 html[data-theme=dark] input[type=checkbox] { background: #23252a; border-color: rgba(255,255,255,.3); }
-html[data-theme=dark] .secondary, html[data-theme=dark] .dash-head .ghost, html[data-theme=dark] .tag, html[data-theme=dark] .ob-top .back, html[data-theme=dark] .ob-add,
-html[data-theme=dark] .theme-btn { background: rgba(255,255,255,.1); color: var(--ink); }
+html[data-theme=dark] .tag, html[data-theme=dark] .ob-top .back, html[data-theme=dark] .ob-add { background: rgba(255,255,255,.1); color: var(--ink); }
 html[data-theme=dark] .ob-chips button { background: rgba(255,255,255,.1); color: var(--ink); }
 html[data-theme=dark] .ob-tile.on { background: linear-gradient(#202227, #202227) padding-box, linear-gradient(135deg, #5bfcc4, #f593e4, #71a4f0) border-box; }
 html[data-theme=dark] .ob-steps i { background: rgba(255,255,255,.2); } html[data-theme=dark] .ob-steps i.on { background: var(--accent); }
@@ -221,7 +230,8 @@ html[data-theme=dark] .dash.editing .w { background: rgba(255,255,255,.06); }
 html[data-theme=dark] .bar { background: rgba(255,125,155,.16); }
 html[data-theme=dark] .toast { background: rgba(241,241,241,.94); color: #111; }
 html[data-theme=dark] .toast button { background: rgba(0,0,0,.1); color: #111; }
-.theme-btn { width: 44px; height: 44px; background: rgba(0,0,0,.06); font-size: 20px; flex: 0 0 auto; }
+.theme-btn, #dashEdit { height: 42px; font-size: 15px; padding: 0 .9em 0 .7em; flex: 0 0 auto; }
+.dash-head h1 { font-size: 26px; white-space: nowrap; }
 .head-btns { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 .head-btns .ghost { margin-top: 0 !important; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition-duration: .01ms !important; } }
@@ -410,7 +420,7 @@ function homeView() {
   }
   const order = [...dashOrder.filter(k => widgets[k]), ...Object.keys(widgets).filter(k => !dashOrder.includes(k))];
   const missingAll = BILLS.filter(needsInfo).length;
-  return `<div class="dash-head"><div><h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p></div><div class="head-btns"><button class="theme-btn" data-theme-toggle aria-label="切換白天／夜間">${document.documentElement.dataset.theme === 'dark' ? '☀️' : '🌙'}</button><button class="ghost" id="dashEdit">${dashEditing ? '完成' : '編輯排列'}</button></div></div>
+  return `<div class="dash-head"><div><h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p></div><div class="head-btns"><button class="theme-btn" data-theme-toggle data-icon="${document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon'}" aria-label="切換白天／夜間">${document.documentElement.dataset.theme === 'dark' ? '白天' : '夜間'}</button><button id="dashEdit" data-icon="${dashEditing ? 'check' : 'grid'}">${dashEditing ? '完成' : '排列'}</button></div></div>
     ${dashEditing ? '<p class="hint" style="margin:-4px 2px 10px">按住卡片拖動，或用箭頭調整順序。</p>' : ''}
     <div class="dash ${dashEditing ? 'editing' : ''}" id="dash">${order.map((k, i) => `<div class="w ${widgets[k].wide ? 'wide' : ''}" data-w="${k}">${widgets[k].html}${dashEditing ? `<div class="w-arrows"><button data-move="${k}|-1" ${i === 0 ? 'disabled' : ''} aria-label="往前">↑</button><button data-move="${k}|1" ${i === order.length - 1 ? 'disabled' : ''} aria-label="往後">↓</button></div>` : ''}</div>`).join('')}</div>
     ${!dashEditing && items.length > 1 ? `<h2>接下來要繳</h2>${items.slice(1, 8).map(card).join('')}` : ''}
@@ -546,6 +556,33 @@ document.addEventListener('click', async e => {
   else if (t.id === 'logout') { await sb.auth.signOut(); location.reload(); }
   else if (t.dataset.view) { view = t.dataset.view; homeFilter = ''; dashEditing = false; render(); scrollTo(0, 0); }
 });
+
+
+// 按鈕統一外觀：替主要／次要按鈕補上圖示和文字外框（只處理一次）
+const FX_ICONS = {
+  send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/>', check: '<path d="M20 6 9 17l-5-5"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>', edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/>', out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'
+};
+function fxIconFor(btn, text) {
+  if (btn.dataset.icon) return btn.dataset.icon;
+  if (btn.classList.contains('pay') || /繳|儲存|完成|存好/.test(text)) return 'check';
+  if (/新增|＋/.test(text)) return 'plus';
+  if (/取消|關閉|刪除/.test(text)) return 'x';
+  if (/修改/.test(text)) return 'edit';
+  if (/登出/.test(text)) return 'out';
+  return 'send';
+}
+function fxButtons(root = document) {
+  root.querySelectorAll('.primary, .pay, .secondary, .theme-btn, #dashEdit').forEach(btn => {
+    if (btn.querySelector('.fx-t')) return;
+    const text = btn.textContent.replace(/^[＋+]\s*/, '').trim();
+    const ic = fxIconFor(btn, text);
+    btn.innerHTML = `<span class="fx-i" data-i="${ic}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${FX_ICONS[ic]}</svg></span><span class="fx-t">${esc(text)}</span>`;
+  });
+}
+new MutationObserver(() => fxButtons()).observe(document.body, { childList: true, subtree: true });
 
 // ---------- 登入（email 登入連結，不用記密碼） ----------
 function loginView() {

@@ -91,9 +91,10 @@
 
   dlg.addEventListener('click', async e => {
     if (e.target.closest('.fc')) { e.target.closest('.fc').classList.toggle('flipped'); return; }
-    if (e.target.id === 'cdClose') dlg.close();
-    if (e.target.id === 'cdEdit') { dlg.close(); openBill(cur.b.id); }
-    if (e.target.id === 'cdAmt') { dlg.close(); openPay(cur.b.id, cur.due); }
+    const id = e.target.closest('button')?.id;   // 按鈕裡有圖示和文字外框，點到的可能是裡面的 span
+    if (id === 'cdClose') dlg.close();
+    if (id === 'cdEdit') { dlg.close(); openBill(cur.b.id); }
+    if (id === 'cdAmt') { dlg.close(); openPay(cur.b.id, cur.due); }
   });
   dlg.addEventListener('change', async e => {
     if (e.target.id !== 'cdPaid') return;
