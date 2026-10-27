@@ -54,9 +54,8 @@
   .ob-row .nm { font-size: 19px; font-weight: 600; padding-right: 40px; margin-bottom: 6px; }
   .ob-row label { margin: 8px 0 4px; font-size: 15px; }
   .ob-row .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .ob-checks { display: flex; gap: 8px; margin-top: 8px; }
-  .ob-checks label:has(input:checked) { border-color: transparent; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #5bfcc4, #f593e4, #71a4f0) border-box; border-width: 2px; }
-  .ob-checks label { transition: all .2s ease; flex: 1; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px; height: 48px; border-radius: 14px; background: rgba(0,0,0,.04); border: 1px solid rgba(0,0,0,.14); color: var(--ink); font-size: 18px; }
+  .ob-checks { display: flex; justify-content: space-around; margin-top: 8px; padding: 2px 0; }
+  .ob-row .checkbox-wrapper { margin: 0; font-size: 18px; color: var(--ink); }
 
   .ob-add { width: 100%; height: 52px; background: rgba(0,0,0,.06); color: var(--ink); font-size: 18px; margin-top: 4px; }
   .ob-bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--paper) 30%); }
@@ -128,7 +127,7 @@
       ${g.chips && !r.custom ? `<div class="nm">${esc(r.name)}</div>` : ''}
       ${f('name') || r.custom ? `<label>名稱</label><input data-r="${i}" data-f="name" placeholder="${k === 'interest' ? '例如 土地銀行 利息' : '例如 大樓管理費'}" value="${esc(r.name)}">` : ''}
       ${f('location') ? `<label>地址或名稱</label><input data-r="${i}" data-f="location" placeholder="例如 陽明路" value="${esc(r.location)}">` : ''}
-      ${f('types') ? `<div class="ob-checks">${UTIL.map(([t, l]) => `<label><input type="checkbox" data-r="${i}" data-t="${t}" ${r.types.includes(t) ? 'checked' : ''}>${l.replace('費', '')}</label>`).join('')}</div>` : ''}
+      ${f('types') ? `<div class="ob-checks">${UTIL.map(([t, l]) => `<label class="checkbox-wrapper"><input type="checkbox" data-r="${i}" data-t="${t}" ${r.types.includes(t) ? 'checked' : ''}><span class="checkmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="label">${l.replace('費', '')}</span></label>`).join('')}</div>` : ''}
       ${f('default_amount') ? `<div class="two">${day}<div><label>每月金額（元）</label><input data-r="${i}" data-f="default_amount" type="number" inputmode="numeric" placeholder="例如 15000" value="${esc(r.default_amount)}"></div></div>` : day}
     </div>`;
   }

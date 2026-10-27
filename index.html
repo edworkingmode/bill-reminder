@@ -131,6 +131,30 @@ input[type=checkbox]::after { content: ""; width: 7px; height: 12px; border: sol
 input[type=checkbox]:checked { border-color: transparent; background: linear-gradient(135deg, #5bfcc4, #f593e4 55%, #71a4f0); animation: pop .3s ease; }
 input[type=checkbox]:checked::after { transform: rotate(45deg) scale(1); }
 @keyframes pop { 50% { transform: scale(1.18); } }
+
+/* 勾選：Edison 提供的發光勾選框（.checkbox-wrapper）。文字改深色以便在淺底上閱讀；手機用按下狀態取代 hover。 */
+.checkbox-wrapper { --checkbox-size: 25px; --checkbox-color: #00ff88; --checkbox-shadow: rgba(0, 255, 136, .3); --checkbox-border: rgba(0, 255, 136, .7);
+  display: flex; align-items: center; position: relative; cursor: pointer; padding: 10px; margin: 0; color: var(--ink); -webkit-tap-highlight-color: transparent; }
+.checkbox-wrapper input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+.checkbox-wrapper .checkmark { position: relative; flex: 0 0 auto; width: var(--checkbox-size); height: var(--checkbox-size); border: 2px solid var(--checkbox-border); border-radius: 8px;
+  transition: all .4s cubic-bezier(.68, -.55, .265, 1.55); display: flex; justify-content: center; align-items: center; background: rgba(0, 0, 0, .2); box-shadow: 0 0 15px var(--checkbox-shadow); overflow: hidden; }
+.checkbox-wrapper .checkmark::before { content: ""; position: absolute; width: 100%; height: 100%; background: linear-gradient(45deg, var(--checkbox-color), #00ffcc); opacity: 0;
+  transition: all .4s cubic-bezier(.68, -.55, .265, 1.55); transform: scale(0) rotate(-45deg); }
+.checkbox-wrapper input:checked ~ .checkmark::before { opacity: 1; transform: scale(1) rotate(0); }
+.checkbox-wrapper .checkmark svg { width: 0; height: 0; color: #1a1a1a; z-index: 1; transition: all .4s cubic-bezier(.68, -.55, .265, 1.55); filter: drop-shadow(0 0 2px rgba(0, 0, 0, .5)); }
+.checkbox-wrapper input:checked ~ .checkmark svg { width: 18px; height: 18px; transform: rotate(360deg); }
+.checkbox-wrapper:hover .checkmark, .checkbox-wrapper:active .checkmark, .checkbox-wrapper input:focus-visible ~ .checkmark { border-color: var(--checkbox-color); transform: scale(1.1);
+  box-shadow: 0 0 20px var(--checkbox-shadow), 0 0 40px var(--checkbox-shadow), inset 0 0 10px var(--checkbox-shadow); }
+.checkbox-wrapper input:checked ~ .checkmark { animation: cbPulse 1s cubic-bezier(.68, -.55, .265, 1.55); }
+@keyframes cbPulse { 0% { transform: scale(1); box-shadow: 0 0 20px var(--checkbox-shadow); } 50% { transform: scale(.9); box-shadow: 0 0 30px var(--checkbox-shadow), 0 0 50px var(--checkbox-shadow); } 100% { transform: scale(1); box-shadow: 0 0 20px var(--checkbox-shadow); } }
+.checkbox-wrapper .label { margin-left: 12px; font-size: 18px; opacity: .9; transition: all .3s; }
+.checkbox-wrapper input:checked ~ .label { opacity: 1; font-weight: 600; }
+.checkbox-wrapper:hover .label, .checkbox-wrapper:active .label { opacity: 1; transform: translateX(5px); }
+.checkbox-wrapper::after, .checkbox-wrapper::before { content: ""; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--checkbox-color); opacity: 0; transition: all .5s; }
+.checkbox-wrapper::before { left: -10px; top: 50%; }
+.checkbox-wrapper::after { right: -10px; top: 50%; }
+.checkbox-wrapper:hover::before, .checkbox-wrapper:active::before { opacity: 1; transform: translateX(-10px); box-shadow: 0 0 10px var(--checkbox-color); }
+.checkbox-wrapper:hover::after, .checkbox-wrapper:active::after { opacity: 1; transform: translateX(10px); box-shadow: 0 0 10px var(--checkbox-color); }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition-duration: .01ms !important; } }
 </style>
 </head>
