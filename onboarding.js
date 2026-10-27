@@ -39,18 +39,25 @@
   .ob-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .ob-tile { background: var(--card); border-radius: 17px; padding: 16px 12px; box-shadow: var(--shadow); text-align: center; font-size: 19px; font-weight: 600; border: 2px solid transparent; color: var(--ink); }
   .ob-tile .ic { display: block; font-size: 32px; margin-bottom: 4px; }
-  .ob-tile.on { border-color: var(--accent); background: #fff; }
-  .ob-tile.on::after { content: "✓ 有"; display: block; color: var(--accent); font-size: 15px; margin-top: 2px; }
+  .ob-tile { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+  .ob-tile:active { transform: scale(.96); }
+  .ob-tile.on { border-color: transparent; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #5bfcc4, #f593e4, #71a4f0) border-box; box-shadow: 0 6px 18px rgba(245,147,228,.25); animation: pop .3s ease; }
+  .ob-tile.on::after { content: "✓ 有"; display: block; font-size: 15px; margin-top: 2px; background: linear-gradient(90deg, #2bbf8f, #d65cbf, #4a7fd6); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .ob-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+  .ob-chips button { transition: transform .15s ease; }
+  .ob-chips button:active { transform: scale(.94); }
   .ob-chips button { background: #fff; color: var(--ink); padding: 0 16px; height: 46px; font-size: 18px; box-shadow: var(--shadow); }
+  .ob-row:last-of-type { animation: rowIn .35s cubic-bezier(.16,1,.3,1); }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(8px) scale(.98); } }
   .ob-row { background: var(--card); border-radius: 17px; padding: 12px 14px; box-shadow: var(--shadow); margin-bottom: 10px; position: relative; }
   .ob-row .rm { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.06); width: 36px; height: 36px; font-size: 16px; color: var(--soft); }
   .ob-row .nm { font-size: 19px; font-weight: 600; padding-right: 40px; margin-bottom: 6px; }
   .ob-row label { margin: 8px 0 4px; font-size: 15px; }
   .ob-row .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .ob-checks { display: flex; gap: 8px; margin-top: 8px; }
-  .ob-checks label { flex: 1; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px; height: 48px; border-radius: 14px; background: #fff; border: 1px solid var(--line); color: var(--ink); font-size: 18px; }
-  .ob-checks input { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+  .ob-checks label:has(input:checked) { border-color: transparent; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #5bfcc4, #f593e4, #71a4f0) border-box; border-width: 2px; }
+  .ob-checks label { transition: all .2s ease; flex: 1; margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px; height: 48px; border-radius: 14px; background: rgba(0,0,0,.04); border: 1px solid rgba(0,0,0,.14); color: var(--ink); font-size: 18px; }
+
   .ob-add { width: 100%; height: 52px; background: rgba(0,0,0,.06); color: var(--ink); font-size: 18px; margin-top: 4px; }
   .ob-bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--paper) 30%); }
   .ob-bottom button { display: block; width: min(100%, 398px); margin: 0 auto; height: 58px; font-size: 20px; }
