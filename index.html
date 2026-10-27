@@ -263,7 +263,8 @@ function homeView() {
   const pct = total ? Math.round(done / total * 100) : 0;
   return `<h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p>
     ${total ? `<div class="progress"><div class="big"><span class="num">${done}/${total}</span><small>${done === total ? '本月全部繳完了 🎉' : '本月已繳'}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>` : ''}
-    ${hero || '<div class="empty">一個月內沒有要繳的帳單</div>'}
+    ${hero || (BILLS.length ? '<div class="empty">一個月內沒有要繳的帳單</div>'
+      : `<div class="hero"><div class="label">歡迎使用</div><div class="title">先把第一筆帳單<br>加進來吧</div><div class="caption">例如一張信用卡：填名稱和每月幾號截止就好，其他可以之後再補。</div><button class="pay" data-edit="">＋ 新增帳單</button></div>`)}
     ${now.length ? `<h2>今天要繳／已過期</h2>${now.map(card).join('')}` : ''}
     ${week.length ? `<h2>這 7 天內</h2>${week.map(card).join('')}` : ''}
     ${later.length ? `<h2>之後一個月</h2>${later.map(card).join('')}` : ''}
