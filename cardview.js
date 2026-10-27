@@ -27,7 +27,7 @@
     box-shadow: rgba(0,0,0,.4) 0 2px 2px, rgba(0,0,0,.3) 0 7px 13px -3px, rgba(0,0,0,.2) 0 -1px 0 inset; }
   .fc .flip-card-back { transform: rotateY(180deg); }
   @media (hover: none) { .fc:hover .flip-card-inner { transform: none; } .fc.flipped:hover .flip-card-inner { transform: rotateY(180deg); } }
-  .cd-period { background: #fff; border-radius: 17px; padding: 14px 16px; margin-top: 12px; box-shadow: var(--shadow); }
+  .cd-period { background: var(--card); border-radius: 17px; padding: 14px 16px; margin-top: 12px; box-shadow: var(--shadow); }
   .cd-period .due { font-size: 20px; font-weight: 600; }
   .cd-period .meta { color: var(--soft); font-size: 16px; }
   .cd-period .checkbox-wrapper { padding: 12px 4px 4px; }
