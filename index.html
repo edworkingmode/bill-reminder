@@ -315,6 +315,10 @@ input:not([type=checkbox]):not(:placeholder-shown):not(:focus) { border-color: r
 .ghost, .back-dash { color: var(--brand-ink); }
 .empty, .w-empty { color: var(--soft); }
 nav button.on, html[data-theme=dark] nav button.on { background: linear-gradient(to right, var(--brand-2), var(--brand)); color: #fff; }
+.auth-tabs { display: flex; background: var(--brand-soft); border-radius: 14px; padding: 4px; margin: 14px 0 6px; }
+.auth-tabs button { flex: 1; height: 46px; background: none; color: var(--soft); font-size: 17px; border-radius: 11px; }
+.auth-tabs button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
+nav[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -673,21 +677,61 @@ function fxButtons(root = document) {
 new MutationObserver(() => fxButtons()).observe(document.body, { childList: true, subtree: true });
 
 // ---------- 登入（email 登入連結，不用記密碼） ----------
-function loginView() {
-  $('#app').innerHTML = `<h1>繳費提醒</h1><p class="sub">輸入 email，我們會寄一封登入信給您，點信裡的連結就能進來。</p>
-    <form id="login"><label for="email">Email</label><input id="email" type="email" required autocomplete="email">
-    <div class="row"><button class="primary">寄登入信</button></div></form><p id="msg" class="sub"></p>`;
-  $('#login').onsubmit = async e => {
+// 錯誤訊息翻成白話
+const authMsg = m => /Invalid login/i.test(m) ? 'Email 或密碼不對，再試一次。' : /already registered/i.test(m) ? '這個 email 已經註冊過了，請直接登入。'
+  : /at least 6/i.test(m) ? '密碼至少要 6 個字。' : /Email not confirmed/i.test(m) ? '這個 email 還沒確認，請到信箱點確認信。' : m;
+function loginView(mode = 'in') {
+  const tabs = `<div class="auth-tabs"><button type="button" data-auth="in" class="${mode === 'in' ? 'on' : ''}">登入</button><button type="button" data-auth="up" class="${mode === 'up' ? 'on' : ''}">第一次使用</button></div>`;
+  const forms = {
+    in: `<form id="authForm"><label for="email">Email</label><input id="email" type="email" required autocomplete="email" inputmode="email">
+      <label for="pw">密碼</label><input id="pw" type="password" required autocomplete="current-password" minlength="6">
+      <div class="row"><button class="primary">登入</button></div>
+      <button type="button" class="ghost" data-auth="reset" style="margin-top:10px">忘記密碼／還沒設過密碼</button></form>`,
+    up: `<form id="authForm"><label for="email">Email</label><input id="email" type="email" required autocomplete="email" inputmode="email">
+      <label for="pw">設定密碼（至少 6 個字）</label><input id="pw" type="password" required autocomplete="new-password" minlength="6">
+      <div class="row"><button class="primary">建立帳號</button></div></form>`,
+    reset: `<p class="sub">輸入 email，我們寄一封信給您，點信裡的連結就能設定新密碼。</p><form id="authForm"><label for="email">Email</label><input id="email" type="email" required autocomplete="email" inputmode="email">
+      <div class="row"><button type="button" class="secondary" data-auth="in">返回</button><button class="primary">寄設定密碼信</button></div></form>`
+  };
+  $('#app').innerHTML = `<h1>繳費提醒</h1><p class="sub">${mode === 'up' ? '建立帳號後，之後打開都會自動登入。' : '登入一次，之後打開都會自動登入。'}</p>${mode === 'reset' ? '' : tabs}${forms[mode]}<p id="msg" class="sub" style="margin-top:12px"></p>`;
+  $('#app').querySelectorAll('[data-auth]').forEach(el => el.onclick = () => loginView(el.dataset.auth));
+  $('#authForm').onsubmit = async e => {
     e.preventDefault();
-    const { error } = await sb.auth.signInWithOtp({ email: $('#email').value.trim(), options: { emailRedirectTo: location.origin + location.pathname } });
-    $('#msg').textContent = error ? '寄送失敗：' + error.message : '已寄出，請到信箱點連結。';
+    const email = $('#email').value.trim(), pw = $('#pw')?.value, msg = $('#msg'), btn = e.submitter; btn && (btn.disabled = true);
+    msg.textContent = '處理中…';
+    let r;
+    if (mode === 'in') r = await sb.auth.signInWithPassword({ email, password: pw });
+    else if (mode === 'up') r = await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } });
+    else r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    btn && (btn.disabled = false);
+    if (r.error) { msg.textContent = authMsg(r.error.message); return; }
+    if (mode === 'reset') msg.textContent = '已寄出，請到信箱點連結設定密碼。';
+    else if (mode === 'up' && !r.data.session) msg.textContent = '帳號建立了！請到信箱點一次確認信，之後就用密碼登入。';
+    else msg.textContent = '';
+  };
+}
+// 從「設定密碼信」回來：先讓使用者設定新密碼，再進 App
+function setPasswordView(done) {
+  $('#nav').hidden = true;
+  $('#app').innerHTML = `<h1>設定新密碼</h1><p class="sub">設定好之後，以後都用 email＋這組密碼登入。</p>
+    <form id="pwForm"><label for="pw">新密碼（至少 6 個字）</label><input id="pw" type="password" required minlength="6" autocomplete="new-password">
+    <div class="row"><button class="primary">儲存密碼</button></div></form><p id="msg" class="sub"></p>`;
+  $('#pwForm').onsubmit = async e => {
+    e.preventDefault();
+    const { error } = await sb.auth.updateUser({ password: $('#pw').value });
+    if (error) { $('#msg').textContent = authMsg(error.message); return; }
+    history.replaceState(null, '', location.pathname); done();
   };
 }
 (async () => {
-  let shown = false;
-  const showApp = () => { if (shown) return; shown = true; $('#nav').hidden = false; refresh(); };
+  let shown = false, recovering = location.hash.includes('type=recovery');
+  const showApp = () => { if (shown || recovering) return; shown = true; $('#nav').hidden = false; refresh(); };
   // 回呼裡不能直接呼叫 Supabase（會卡住），用 setTimeout 移出去；也不再重新整理頁面，避免無限重載
-  if (!DEMO) sb.auth.onAuthStateChange((ev, session) => { if (session) setTimeout(showApp, 0); });
+  if (!DEMO) sb.auth.onAuthStateChange((ev, session) => {
+    if (ev === 'PASSWORD_RECOVERY') { recovering = true; setTimeout(() => setPasswordView(() => { recovering = false; showApp(); }), 0); return; }
+    if (session) setTimeout(showApp, 0);
+  });
+  if (recovering) { await sb.auth.getSession(); setPasswordView(() => { recovering = false; showApp(); }); return; }
   if (await store.init()) showApp(); else if (!shown) loginView();
 })();
 </script>
