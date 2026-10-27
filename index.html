@@ -296,7 +296,7 @@ function homeView() {
     const cls = days < 0 ? 'overdue' : days === 0 ? 'today' : '';
     const when = days < 0 ? `<span class="tag red">過期 ${-days} 天</span>` : days === 0 ? '<span class="tag red">今天</span>' : `<span class="tag">${days} 天後</span>`;
     const amt = b.default_amount ? `・約 ${Number(b.default_amount).toLocaleString()} 元` : '';
-    return `<div class="card ${cls}"><span class="chip ${tone(b)}"></span><div class="info"><div class="name">${esc(billLabel(b))}${when}</div><div class="meta">${fmtDate(due)} 截止${amt}</div></div><button class="pay" data-pay="${b.id}|${due}">繳了</button></div>`;
+    return `<div class="card ${cls}" ${b.category === 'credit_card' ? `data-card="${b.id}|${due}" style="cursor:pointer"` : ''}><span class="chip ${tone(b)}"></span><div class="info"><div class="name">${esc(billLabel(b))}${when}</div><div class="meta">${fmtDate(due)} 截止${amt}</div></div><button class="pay" data-pay="${b.id}|${due}">繳了</button></div>`;
   };
   // 最急的一筆放成主卡，其餘照時間排
   const top = items[0], rest = items.slice(1);
@@ -304,7 +304,7 @@ function homeView() {
     const { b, due, days } = top;
     const [n, unit, label] = days < 0 ? [-days, '天', '已經過期'] : days === 0 ? ['今天', '', '今天截止'] : [days, '天後', '下一筆要繳'];
     const amt = b.default_amount ? `・約 ${Number(b.default_amount).toLocaleString()} 元` : '';
-    return `<div class="hero ${tone(b)}"><svg class="grain" viewBox="0 0 429 554" preserveAspectRatio="none" aria-hidden="true"><filter id="cardNoise"><feTurbulence type="fractalNoise" baseFrequency=".54" numOctaves="3" seed="27" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#cardNoise)"/></svg>
+    return `<div class="hero ${tone(b)}" ${b.category === 'credit_card' ? `data-card="${b.id}|${due}" style="cursor:pointer"` : ''}><svg class="grain" viewBox="0 0 429 554" preserveAspectRatio="none" aria-hidden="true"><filter id="cardNoise"><feTurbulence type="fractalNoise" baseFrequency=".54" numOctaves="3" seed="27" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#cardNoise)"/></svg>
       <div class="label">${label}</div><div class="title">${esc(billLabel(b))}</div>
       <div class="metric"><span class="num">${n}</span>${unit ? `<span class="unit">${unit}</span>` : ''}</div>
       <div class="caption">${fmtDate(due)} 截止${amt}</div>
@@ -330,7 +330,7 @@ function billsView() {
     : b.due_type === 'monthly_day' ? `每月 ${b.due_day} 號` : `每 ${b.interval_months} 個月，從 ${fmtDate(b.anchor_date)} 起算`;
   return `<h1>全部帳單</h1><p class="sub">點一筆可以修改。共 ${BILLS.length} 筆。</p>` +
     Object.entries(groups).map(([g, list]) => `<h2>${esc(g)}</h2>` + list.map(b =>
-      `<div class="card" data-edit="${b.id}" style="cursor:pointer"><div class="info"><div class="name">${esc(billLabel(b))}</div><div class="meta">${rule(b)}${b.note ? '・' + esc(b.note) : ''}</div></div><span style="color:var(--soft)">›</span></div>`).join('')).join('') +
+      `<div class="card" ${b.category === 'credit_card' ? `data-card="${b.id}"` : `data-edit="${b.id}"`} style="cursor:pointer"><div class="info"><div class="name">${esc(billLabel(b))}</div><div class="meta">${rule(b)}${b.note ? '・' + esc(b.note) : ''}</div></div><span style="color:var(--soft)">›</span></div>`).join('')).join('') +
     `<div class="row"><button class="primary" data-edit="">＋ 新增帳單</button></div>` +
     `<div class="row"><button class="secondary" onclick="openOnboarding()">用引導一次加很多筆</button></div>` +
     (DEMO ? '' : `<div class="row"><button class="secondary" id="logout">登出</button></div>`);
@@ -421,9 +421,10 @@ $('#billDlg').addEventListener('close', async () => {
 
 // ---------- 事件 ----------
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-pay],[data-edit],[data-unpay],[data-go],#logout,nav button');
+  const t = e.target.closest('[data-pay],[data-card],[data-edit],[data-unpay],[data-go],#logout,nav button');
   if (!t) return;
-  if (t.dataset.pay) { const [id, due] = t.dataset.pay.split('|'); quickPay(t, id, due); }
+  if (t.dataset.card) { const [id, due] = t.dataset.card.split('|'); openCard(id, due); }
+  else if (t.dataset.pay) { const [id, due] = t.dataset.pay.split('|'); quickPay(t, id, due); }
   else if (t.dataset.edit !== undefined) openBill(t.dataset.edit);
   else if (t.dataset.unpay) { if (confirm('把這筆改回「還沒繳」？')) { await store.unpay(t.dataset.unpay); refresh(); } }
   else if (t.dataset.go) { view = t.dataset.go; render(); }
@@ -450,5 +451,6 @@ function loginView() {
   if (await store.init()) showApp(); else if (!shown) loginView();
 })();
 </script>
+<script src="cardview.js"></script>
 </body>
 </html>
