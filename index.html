@@ -155,6 +155,41 @@ input[type=checkbox]:checked::after { transform: rotate(45deg) scale(1); }
 .checkbox-wrapper::after { right: -10px; top: 50%; }
 .checkbox-wrapper:hover::before, .checkbox-wrapper:active::before { opacity: 1; transform: translateX(-10px); box-shadow: 0 0 10px var(--checkbox-color); }
 .checkbox-wrapper:hover::after, .checkbox-wrapper:active::after { opacity: 1; transform: translateX(10px); box-shadow: 0 0 10px var(--checkbox-color); }
+
+/* 儀表板 */
+.dash-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.dash-head .ghost { margin-top: 10px; background: rgba(0,0,0,.06); border-radius: 999px; padding: 8px 14px; font-size: 16px; color: var(--ink); }
+.dash { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.w { position: relative; min-width: 0; }
+.w.wide { grid-column: 1 / -1; }
+.w .hero { margin: 0; }
+.w-empty, .w-progress { background: var(--card); border: 1px solid rgba(255,255,255,.9); border-radius: 17px; padding: 14px 16px; box-shadow: var(--shadow); }
+.w-empty { text-align: center; color: var(--soft); padding: 22px; }
+.w-progress .big { display: flex; align-items: flex-end; gap: 10px; color: var(--accent); }
+.w-progress .num { font-size: 44px; }
+.w-progress small { color: var(--copy); font-size: 17px; padding-bottom: 4px; }
+.w-tile { position: relative; overflow: hidden; height: 100%; background: var(--card); border: 1px solid rgba(255,255,255,.9); border-radius: 17px; padding: 16px 14px 12px; box-shadow: var(--shadow); cursor: pointer; transition: transform .15s ease; }
+.w-tile::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: var(--g-crimson); }
+.w-tile.violet::before { background: var(--g-violet); } .w-tile.orange::before { background: var(--g-orange); }
+.w-tile:active { transform: scale(.97); }
+.w-head { font-size: 17px; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.w-big { display: flex; align-items: flex-end; gap: 6px; margin: 8px 0 2px; min-height: 40px; }
+.w-big .num { font-size: 38px; } .w-big .num.red { color: var(--red); }
+.w-big small { font-size: 15px; color: var(--copy); padding-bottom: 4px; }
+.w-ok { font-size: 19px; font-weight: 600; color: var(--green); } .w-ok.soft { color: var(--amber); }
+.w-sub { font-size: 14px; color: var(--soft); }
+.dash.editing .w { animation: wiggle .32s ease-in-out infinite alternate; cursor: grab; touch-action: none; }
+.dash.editing .w:nth-child(2n) { animation-delay: -.16s; }
+.dash.editing .w > * { pointer-events: none; }
+.dash.editing .w .w-arrows, .dash.editing .w .w-arrows * { pointer-events: auto; }
+@keyframes wiggle { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
+.dash.editing .w { padding-top: 50px; background: rgba(0,0,0,.05); border-radius: 20px; }
+.w-arrows { position: absolute; top: 5px; right: 6px; display: flex; gap: 6px; z-index: 5; }
+.w-arrows::before { content: "⠿ 拖動"; position: absolute; right: calc(100% + 8px); top: 10px; white-space: nowrap; font-size: 14px; color: var(--soft); }
+.w-arrows button { width: 40px; height: 40px; background: rgba(34,34,34,.85); color: #fff; font-size: 18px; }
+.w-arrows button:disabled { opacity: .25; }
+.w-ghost { opacity: .35; }
+.back-dash { margin: 0 0 4px -8px; font-size: 17px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition-duration: .01ms !important; } }
 </style>
 </head>
@@ -183,6 +218,7 @@ input[type=checkbox]:checked::after { transform: rotate(45deg) scale(1); }
   <form method="dialog" id="billForm"></form>
 </dialog>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script src="config.js"></script>
 <script src="onboarding.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
@@ -247,7 +283,9 @@ const demoStore = {
   async pay(bill_id, due_date, amount) { this.db.payments = this.db.payments.filter(p => !(p.bill_id === bill_id && p.due_date === due_date)); this.db.payments.push({ id: crypto.randomUUID(), bill_id, due_date, amount, status: 'paid', paid_at: new Date().toISOString() }); this.save(this.db); },
   async unpay(id) { this.db.payments = this.db.payments.filter(p => p.id !== id); this.save(this.db); },
   async saveBill(b) { if (b.id) Object.assign(this.db.bills.find(x => x.id === b.id), b); else this.db.bills.push({ ...b, id: crypto.randomUUID(), active: true, created_at: todayStr() }); this.save(this.db); },
-  async removeBill(id) { this.db.bills.find(x => x.id === id).active = false; this.save(this.db); }
+  async removeBill(id) { this.db.bills.find(x => x.id === id).active = false; this.save(this.db); },
+  async getOrder() { try { return JSON.parse(localStorage.getItem('dash-order')); } catch { return null; } },
+  async setOrder(o) { try { localStorage.setItem('dash-order', JSON.stringify(o)); } catch {} }
 };
 const sb = DEMO ? null : supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 const cloudStore = {
@@ -257,14 +295,17 @@ const cloudStore = {
   async pay(bill_id, due_date, amount) { const { error } = await sb.from('payments').upsert({ bill_id, due_date, amount, status: 'paid', paid_at: new Date().toISOString() }, { onConflict: 'bill_id,due_date' }); if (error) throw error; },
   async unpay(id) { const { error } = await sb.from('payments').delete().eq('id', id); if (error) throw error; },
   async saveBill(b) { const { id, created_at, user_id, ...fields } = b; const q = id ? sb.from('bills').update(fields).eq('id', id) : sb.from('bills').insert(fields); const { error } = await q; if (error) throw error; },
-  async removeBill(id) { const { error } = await sb.from('bills').update({ active: false }).eq('id', id); if (error) throw error; }
+  async removeBill(id) { const { error } = await sb.from('bills').update({ active: false }).eq('id', id); if (error) throw error; },
+  // 儀表板順序存在 profiles.dashboard_order；欄位還沒加時退回存在這支手機
+  async getOrder() { const { data, error } = await sb.from('profiles').select('dashboard_order').maybeSingle(); if (error || !data) return demoStore.getOrder(); return data.dashboard_order || demoStore.getOrder(); },
+  async setOrder(o) { demoStore.setOrder(o); const { data: u } = await sb.auth.getUser(); if (u?.user) await sb.from('profiles').update({ dashboard_order: o }).eq('user_id', u.user.id); }
 };
 const store = DEMO ? demoStore : cloudStore;
 
 // ---------- 畫面 ----------
 let view = 'home', BILLS = [], PAYS = [];
 async function refresh() {
-  try { [BILLS, PAYS] = await Promise.all([store.bills(), store.payments()]); }
+  try { let o; [BILLS, PAYS, o] = await Promise.all([store.bills(), store.payments(), store.getOrder().catch(() => null)]); if (Array.isArray(o) && o.length) dashOrder = o; }
   catch (e) { $('#app').innerHTML = `<p class="banner">讀取失敗：${esc(e.message)}</p>`; return; }
   render();
   if (view === 'home' && window.shouldOnboard?.(BILLS)) openOnboarding();
@@ -273,6 +314,7 @@ function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
   const head = DEMO ? '<div class="banner">示範模式：資料只存在這台裝置，還沒連上資料庫。</div>' : '';
   $('#app').innerHTML = head + ({ home: homeView, bills: billsView, history: historyView }[view])();
+  if (view === 'home') enableSort();
 }
 
 function homeView() {
@@ -298,8 +340,8 @@ function homeView() {
     const amt = b.default_amount ? `・約 ${Number(b.default_amount).toLocaleString()} 元` : '';
     return `<div class="card ${cls}" ${b.category === 'credit_card' ? `data-card="${b.id}|${due}" style="cursor:pointer"` : ''}><span class="chip ${tone(b)}"></span><div class="info"><div class="name">${esc(billLabel(b))}${when}</div><div class="meta">${fmtDate(due)} 截止${amt}</div></div><button class="pay" data-pay="${b.id}|${due}">繳了</button></div>`;
   };
-  // 最急的一筆放成主卡，其餘照時間排
-  const top = items[0], rest = items.slice(1);
+  // 最急的一筆＝主卡；它和進度、各類小卡一起組成儀表板
+  const top = items[0];
   const hero = top ? (() => {
     const { b, due, days } = top;
     const [n, unit, label] = days < 0 ? [-days, '天', '已經過期'] : days === 0 ? ['今天', '', '今天截止'] : [days, '天後', '下一筆要繳'];
@@ -309,18 +351,51 @@ function homeView() {
       <div class="metric"><span class="num">${n}</span>${unit ? `<span class="unit">${unit}</span>` : ''}</div>
       <div class="caption">${fmtDate(due)} 截止${amt}</div>
       <button class="pay" data-pay="${b.id}|${due}">繳了</button></div>`;
-  })() : '';
-  const now = rest.filter(i => i.days <= 0), week = rest.filter(i => i.days > 0 && i.days <= 7), later = rest.filter(i => i.days > 7);
-  const missing = BILLS.filter(needsInfo).length;
+  })() : '<div class="w-empty">一個月內沒有要繳的帳單 🎉</div>';
+  if (!BILLS.length) return `<h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p>
+    <div class="hero"><div class="label">歡迎使用</div><div class="title">先把第一筆帳單<br>加進來吧</div><div class="caption">例如一張信用卡：填名稱和每月幾號截止就好，其他可以之後再補。</div><button class="pay" onclick="openOnboarding()">開始設定</button></div>`;
+
+  // 篩選某一類（點小卡進來）
+  if (homeFilter) {
+    const g = GROUP_OF[homeFilter], list = items.filter(i => groupOf(i.b) === homeFilter), info = BILLS.filter(b => groupOf(b) === homeFilter && needsInfo(b));
+    return `<button class="ghost back-dash" data-filter="">‹ 回儀表板</button><h1>${g.icon} ${g.title}</h1>
+      ${list.length ? list.map(card).join('') : '<div class="empty">一個月內沒有要繳的</div>'}
+      ${info.length ? `<h2>還沒填繳款日</h2>${info.map(b => `<div class="card" ${b.category === 'credit_card' ? `data-card="${b.id}"` : `data-edit="${b.id}"`} style="cursor:pointer"><span class="chip ${tone(b)}"></span><div class="info"><div class="name">${esc(billLabel(b))}</div><div class="meta"><span class="tag red">待補</span></div></div><span style="color:var(--soft)">›</span></div>`).join('')}` : ''}`;
+  }
+
   const pct = total ? Math.round(done / total * 100) : 0;
-  return `<h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p>
-    ${total ? `<div class="progress"><div class="big"><span class="num">${done}/${total}</span><small>${done === total ? '本月全部繳完了 🎉' : '本月已繳'}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>` : ''}
-    ${hero || (BILLS.length ? '<div class="empty">一個月內沒有要繳的帳單</div>'
-      : `<div class="hero"><div class="label">歡迎使用</div><div class="title">先把第一筆帳單<br>加進來吧</div><div class="caption">例如一張信用卡：填名稱和每月幾號截止就好，其他可以之後再補。</div><button class="pay" onclick="openOnboarding()">開始設定</button></div>`)}
-    ${now.length ? `<h2>今天要繳／已過期</h2>${now.map(card).join('')}` : ''}
-    ${week.length ? `<h2>這 7 天內</h2>${week.map(card).join('')}` : ''}
-    ${later.length ? `<h2>之後一個月</h2>${later.map(card).join('')}` : ''}
-    ${missing ? `<div class="todo" style="margin-top:24px">還有 ${missing} 筆帳單沒有繳款日，<button class="ghost" data-go="bills">去補資料 ›</button></div>` : ''}`;
+  const widgets = {
+    urgent: { wide: true, html: hero },
+    progress: { wide: true, html: `<div class="w-progress">${total ? `<div class="big"><span class="num">${done}/${total}</span><small>${done === total ? '本月全部繳完了 🎉' : '本月已繳'}</small></div><div class="bar"><i style="width:${pct}%"></i></div>` : '<div class="big"><small style="padding:0">本月進度：這個月還沒有到期的帳單</small></div>'}</div>` }
+  };
+  for (const [k, g] of Object.entries(GROUP_OF)) {
+    const bills = BILLS.filter(b => groupOf(b) === k); if (!bills.length) continue;
+    const list = items.filter(i => groupOf(i.b) === k), late = list.filter(i => i.days <= 0).length, missing = bills.filter(needsInfo).length;
+    const big = late ? `<span class="num red">${late}</span><small>筆到期</small>` : list.length ? `<span class="num">${list.length}</span><small>筆要繳</small>` : missing === bills.length ? '<span class="w-ok soft">待補資料</span>' : '<span class="w-ok">全繳了 ✓</span>';
+    widgets[k] = { html: `<div class="w-tile ${g.tone}" data-filter="${k}"><div class="w-head"><span>${g.icon}</span>${g.title}</div><div class="w-big">${big}</div><div class="w-sub">${list[0] ? '下一筆 ' + fmtDate(list[0].due) : `共 ${bills.length} 筆`}</div></div>` };
+  }
+  const order = [...dashOrder.filter(k => widgets[k]), ...Object.keys(widgets).filter(k => !dashOrder.includes(k))];
+  const missingAll = BILLS.filter(needsInfo).length;
+  return `<div class="dash-head"><div><h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p></div><button class="ghost" id="dashEdit">${dashEditing ? '完成' : '編輯排列'}</button></div>
+    ${dashEditing ? '<p class="hint" style="margin:-4px 2px 10px">按住卡片拖動，或用箭頭調整順序。</p>' : ''}
+    <div class="dash ${dashEditing ? 'editing' : ''}" id="dash">${order.map((k, i) => `<div class="w ${widgets[k].wide ? 'wide' : ''}" data-w="${k}">${widgets[k].html}${dashEditing ? `<div class="w-arrows"><button data-move="${k}|-1" ${i === 0 ? 'disabled' : ''} aria-label="往前">↑</button><button data-move="${k}|1" ${i === order.length - 1 ? 'disabled' : ''} aria-label="往後">↓</button></div>` : ''}</div>`).join('')}</div>
+    ${!dashEditing && items.length > 1 ? `<h2>接下來要繳</h2>${items.slice(1, 8).map(card).join('')}` : ''}
+    ${!dashEditing && missingAll ? `<div class="todo" style="margin-top:24px">還有 ${missingAll} 筆帳單沒有繳款日，<button class="ghost" data-go="bills">去補資料 ›</button></div>` : ''}`;
+}
+// 儀表板：類別小卡的分組、順序與編輯狀態
+const GROUP_OF = {
+  credit_card: { title: '信用卡', icon: '💳', tone: '' }, rent: { title: '房租', icon: '🏠', tone: 'orange' },
+  utility: { title: '水電瓦斯', icon: '💡', tone: 'violet' }, phone: { title: '電話費', icon: '📱', tone: 'orange' },
+  interest: { title: '貸款／利息', icon: '🏦', tone: 'orange' }, other: { title: '其他', icon: '🧾', tone: '' }
+};
+const groupOf = b => ['water', 'electricity', 'gas'].includes(b.category) ? 'utility' : GROUP_OF[b.category] ? b.category : 'other';
+let homeFilter = '', dashEditing = false, dashOrder = ['urgent', 'progress'], sortable = null;
+const saveDashOrder = () => store.setOrder(dashOrder).catch(() => {});
+function enableSort() {
+  sortable?.destroy(); sortable = null;
+  if (!dashEditing || !window.Sortable || !$('#dash')) return;
+  sortable = Sortable.create($('#dash'), { animation: 180, ghostClass: 'w-ghost', forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, filter: '.w-arrows', preventOnFilter: false,
+    onEnd: () => { dashOrder = [...$('#dash').children].filter(el => el.dataset.w && !el.classList.contains('sortable-fallback')).map(el => el.dataset.w); saveDashOrder(); render(); } });
 }
 
 function billsView() {
@@ -421,15 +496,19 @@ $('#billDlg').addEventListener('close', async () => {
 
 // ---------- 事件 ----------
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-pay],[data-card],[data-edit],[data-unpay],[data-go],#logout,nav button');
+  const t = e.target.closest('[data-move],[data-filter],#dashEdit,[data-pay],[data-card],[data-edit],[data-unpay],[data-go],#logout,nav button');
   if (!t) return;
+  if (t.dataset.move) { const [k, d] = t.dataset.move.split('|'); const o = [...$('#dash').children].map(el => el.dataset.w), i = o.indexOf(k), j = i + Number(d);
+    if (j >= 0 && j < o.length) { [o[i], o[j]] = [o[j], o[i]]; dashOrder = o; saveDashOrder(); render(); } return; }
+  if (t.dataset.filter !== undefined) { if (!dashEditing) { homeFilter = t.dataset.filter; render(); scrollTo(0, 0); } return; }
+  if (t.id === 'dashEdit') { dashEditing = !dashEditing; render(); return; }
   if (t.dataset.card) { const [id, due] = t.dataset.card.split('|'); openCard(id, due); }
   else if (t.dataset.pay) { const [id, due] = t.dataset.pay.split('|'); quickPay(t, id, due); }
   else if (t.dataset.edit !== undefined) openBill(t.dataset.edit);
   else if (t.dataset.unpay) { if (confirm('把這筆改回「還沒繳」？')) { await store.unpay(t.dataset.unpay); refresh(); } }
   else if (t.dataset.go) { view = t.dataset.go; render(); }
   else if (t.id === 'logout') { await sb.auth.signOut(); location.reload(); }
-  else if (t.dataset.view) { view = t.dataset.view; render(); scrollTo(0, 0); }
+  else if (t.dataset.view) { view = t.dataset.view; homeFilter = ''; dashEditing = false; render(); scrollTo(0, 0); }
 });
 
 // ---------- 登入（email 登入連結，不用記密碼） ----------
