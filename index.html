@@ -13,19 +13,32 @@
 <link rel="apple-touch-icon" href="icon.svg">
 <style>
 /* 給長輩用：字大、按鈕大、一個畫面只做一件事。 */
+/* 玻璃質感但保持高對比：柔和漸層背景＋霧白卡片＋深色字。 */
 :root {
-  --bg: #f6f4ee; --card: #ffffff; --ink: #1f2a24; --soft: #5c6b62; --line: #e2ded3;
-  --green: #2e7d5b; --green-soft: #e3f1e9; --red: #c0392b; --red-soft: #fbe7e4;
-  --amber: #b7791f; --amber-soft: #fdf3dc;
+  --card: rgba(255, 255, 255, .72); --glass-border: rgba(255, 255, 255, .85); --shadow: 0 8px 28px rgba(31, 60, 48, .10);
+  --ink: #17231d; --soft: #4d5c54; --line: rgba(23, 35, 29, .12);
+  --green: #24724f; --green-soft: rgba(36, 114, 79, .12); --red: #b42318; --red-soft: rgba(255, 228, 224, .85);
+  --amber: #8a5a00; --amber-soft: rgba(255, 240, 200, .85);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 20px/1.5 -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+body { margin: 0; min-height: 100vh; color: var(--ink); font: 20px/1.5 -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  background: radial-gradient(circle at 15% 10%, #cfe9da 0, transparent 45%) fixed, radial-gradient(circle at 90% 30%, #f6e3c4 0, transparent 40%) fixed, radial-gradient(circle at 40% 95%, #d6e4f3 0, transparent 45%) fixed, #e9f1ec; }
+.card, .todo, .banner, .progress, nav { -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); }
+.progress { background: var(--card); border: 1px solid var(--glass-border); border-radius: 20px; padding: 14px 18px; box-shadow: var(--shadow); margin: 8px 0 4px; }
+.progress b { font-size: 26px; }
+.bar { height: 12px; border-radius: 99px; background: var(--green-soft); overflow: hidden; margin-top: 8px; }
+.bar i { display: block; height: 100%; background: var(--green); border-radius: 99px; transition: width .5s; }
+.card.leaving { animation: leave .45s ease forwards; }
+@keyframes leave { 30% { transform: scale(1.02); background: var(--green-soft); } 100% { transform: translateX(40px); opacity: 0; } }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); max-width: 608px; margin: 0 auto; background: rgba(23, 35, 29, .92); color: #fff; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 8px; font-size: 18px; z-index: 10; }
+.toast span { flex: 1; }
+.toast button { background: rgba(255, 255, 255, .18); color: #fff; padding: 8px 12px; font-size: 17px; }
 main { max-width: 640px; margin: 0 auto; padding: 16px 16px 120px; }
 h1 { font-size: 28px; margin: 8px 0 4px; }
 h2 { font-size: 22px; margin: 28px 0 10px; color: var(--soft); }
 .sub { color: var(--soft); margin: 0 0 8px; }
 .banner { background: var(--amber-soft); color: var(--amber); border-radius: 12px; padding: 10px 14px; font-size: 17px; margin-bottom: 12px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--glass-border); box-shadow: var(--shadow); border-radius: 18px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; }
 .card .info { flex: 1; min-width: 0; }
 .card .name { font-size: 22px; font-weight: 600; }
 .card .meta { color: var(--soft); font-size: 17px; }
@@ -65,11 +78,11 @@ input, select, textarea { font: inherit; width: 100%; padding: 12px; border: 1px
   <form method="dialog" id="payForm">
     <h2 id="payTitle" style="margin-top:0;color:var(--ink)"></h2>
     <p class="sub" id="paySub"></p>
-    <label for="payAmount">這次繳了多少錢？（可以不填）</label>
+    <label for="payAmount">這期繳了多少錢？</label>
     <input id="payAmount" type="number" inputmode="numeric" min="0" placeholder="例如 3200">
     <div class="row">
       <button value="cancel" class="secondary">取消</button>
-      <button value="ok" class="primary">繳好了</button>
+      <button value="ok" class="primary">儲存</button>
     </div>
   </form>
 </dialog>
@@ -83,7 +96,7 @@ input, select, textarea { font: inherit; width: 100%; padding: 12px; border: 1px
 <script>
 const CATEGORY = { credit_card: '信用卡', interest: '利息', rent: '房租', water: '水費', electricity: '電費', gas: '瓦斯費', phone: '電話', other: '其他' };
 const cfg = window.APP_CONFIG || {};
-const DEMO = !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY;
+const DEMO = !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || (location.hostname === 'localhost' && location.search.includes('demo'));  // 本機加 ?demo 可試畫面
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -177,18 +190,28 @@ function homeView() {
     for (const due of occurrences(b, start, ahead)) if (!paid.has(b.id + '|' + due)) items.push({ b, due, days: daysBetween(today, due) });
   }
   items.sort((x, y) => x.due.localeCompare(y.due));
+  // 本月進度：這個月到期的期數裡，已繳幾筆
+  const d0 = new Date(), monthStart = ymd(new Date(d0.getFullYear(), d0.getMonth(), 1)), monthEnd = ymd(new Date(d0.getFullYear(), d0.getMonth() + 1, 0));
+  let total = 0, done = 0;
+  for (const b of BILLS) {
+    const start = b.created_at && b.created_at.slice(0, 10) > monthStart ? b.created_at.slice(0, 10) : monthStart;
+    for (const due of occurrences(b, start, monthEnd)) { total++; if (paid.has(b.id + '|' + due)) done++; }
+  }
   const card = ({ b, due, days }) => {
     const cls = days < 0 ? 'overdue' : days === 0 ? 'today' : '';
     const when = days < 0 ? `<span class="tag red">過期 ${-days} 天</span>` : days === 0 ? '<span class="tag red">今天</span>' : `<span class="tag">${days} 天後</span>`;
     const amt = b.default_amount ? `・約 ${Number(b.default_amount).toLocaleString()} 元` : '';
     return `<div class="card ${cls}"><div class="info"><div class="name">${esc(billLabel(b))}${when}</div><div class="meta">${fmtDate(due)} 截止${amt}</div></div><button class="pay" data-pay="${b.id}|${due}">繳了</button></div>`;
   };
-  const late = items.filter(i => i.days <= 7), later = items.filter(i => i.days > 7);
+  const now = items.filter(i => i.days <= 0), week = items.filter(i => i.days > 0 && i.days <= 7), later = items.filter(i => i.days > 7);
   const missing = BILLS.filter(needsInfo).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
   return `<h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p>
-    ${missing ? `<div class="todo">還有 ${missing} 筆帳單沒有繳款日，<button class="ghost" data-go="bills">去補資料 ›</button></div>` : ''}
-    <h2>這 7 天內</h2>${late.length ? late.map(card).join('') : '<div class="empty">這 7 天沒有要繳的 🎉</div>'}
-    <h2>之後一個月</h2>${later.length ? later.map(card).join('') : '<div class="empty">沒有</div>'}`;
+    ${total ? `<div class="progress">本月已繳 <b>${done}</b> / ${total} 筆${done === total ? '　全部繳完了 🎉' : ''}<div class="bar"><i style="width:${pct}%"></i></div></div>` : ''}
+    ${now.length ? `<h2>今天要繳／已過期</h2>${now.map(card).join('')}` : ''}
+    <h2>這 7 天內</h2>${week.length ? week.map(card).join('') : '<div class="empty">這 7 天沒有要繳的</div>'}
+    <h2>之後一個月</h2>${later.length ? later.map(card).join('') : '<div class="empty">沒有</div>'}
+    ${missing ? `<div class="todo" style="margin-top:24px">還有 ${missing} 筆帳單沒有繳款日，<button class="ghost" data-go="bills">去補資料 ›</button></div>` : ''}`;
 }
 
 function billsView() {
@@ -209,12 +232,31 @@ function historyView() {
   return `<h1>已繳紀錄</h1>` + (list.length ? list.map(p => `<div class="card done"><div class="info"><div class="name">${esc(billLabel(byId[p.bill_id]))}</div><div class="meta">${fmtDate(p.due_date)} 那期${p.amount ? `・${Number(p.amount).toLocaleString()} 元` : ''}</div></div><button class="ghost" data-unpay="${p.id}">按錯了</button></div>`).join('') : '<div class="empty">還沒有紀錄</div>');
 }
 
-// ---------- 繳費 ----------
-let payTarget = null;
+// ---------- 繳費：一按完成，金額之後可補 ----------
+let payTarget = null, toastTimer = null;
+async function quickPay(btn, billId, due) {
+  const b = BILLS.find(x => x.id === billId);
+  const amt = b.amount_type === 'fixed' && b.default_amount ? Number(b.default_amount) : null;
+  btn.disabled = true; btn.closest('.card').classList.add('leaving');
+  try { await store.pay(billId, due, amt); }
+  catch (e) { alert('存檔失敗：' + e.message); btn.disabled = false; btn.closest('.card').classList.remove('leaving'); return; }
+  setTimeout(refresh, 450);
+  showToast(`✓ ${billLabel(b)} 已繳`, [
+    ['補金額', () => openPay(billId, due)],
+    ['復原', async () => { const p = PAYS.find(x => x.bill_id === billId && x.due_date === due); if (p) { await store.unpay(p.id); refresh(); } }]
+  ]);
+}
+function showToast(text, actions) {
+  document.querySelector('.toast')?.remove(); clearTimeout(toastTimer);
+  const t = document.createElement('div'); t.className = 'toast';
+  t.innerHTML = `<span>${esc(text)}</span>` + actions.map((a, i) => `<button data-i="${i}">${a[0]}</button>`).join('');
+  t.onclick = e => { const i = e.target.dataset.i; if (i !== undefined) { t.remove(); actions[i][1](); } };
+  document.body.appendChild(t); toastTimer = setTimeout(() => t.remove(), 7000);
+}
 function openPay(billId, due) {
   const b = BILLS.find(x => x.id === billId); payTarget = { b, due };
   $('#payTitle').textContent = billLabel(b); $('#paySub').textContent = `${fmtDate(due)} 截止的這一期`;
-  $('#payAmount').value = b.amount_type === 'fixed' && b.default_amount ? b.default_amount : '';
+  $('#payAmount').value = b.default_amount ?? '';
   $('#payDlg').showModal();
 }
 $('#payDlg').addEventListener('close', async () => {
@@ -271,7 +313,7 @@ $('#billDlg').addEventListener('close', async () => {
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-pay],[data-edit],[data-unpay],[data-go],#logout,nav button');
   if (!t) return;
-  if (t.dataset.pay) { const [id, due] = t.dataset.pay.split('|'); openPay(id, due); }
+  if (t.dataset.pay) { const [id, due] = t.dataset.pay.split('|'); quickPay(t, id, due); }
   else if (t.dataset.edit !== undefined) openBill(t.dataset.edit);
   else if (t.dataset.unpay) { if (confirm('把這筆改回「還沒繳」？')) { await store.unpay(t.dataset.unpay); refresh(); } }
   else if (t.dataset.go) { view = t.dataset.go; render(); }
