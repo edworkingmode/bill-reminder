@@ -134,6 +134,7 @@ input, select { font: inherit; font-size: 18px; width: 100%; padding: 12px 14px;
 </dialog>
 
 <script src="config.js"></script>
+<script src="onboarding.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
 <script>
 const CATEGORY = { credit_card: '信用卡', interest: '利息', rent: '房租', water: '水費', electricity: '電費', gas: '瓦斯費', phone: '電話', other: '其他' };
@@ -216,6 +217,7 @@ async function refresh() {
   try { [BILLS, PAYS] = await Promise.all([store.bills(), store.payments()]); }
   catch (e) { $('#app').innerHTML = `<p class="banner">讀取失敗：${esc(e.message)}</p>`; return; }
   render();
+  if (view === 'home' && window.shouldOnboard?.(BILLS)) openOnboarding();
 }
 function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
@@ -264,7 +266,7 @@ function homeView() {
   return `<h1>要繳的帳單</h1><p class="sub">今天 ${fmtDate(today)}</p>
     ${total ? `<div class="progress"><div class="big"><span class="num">${done}/${total}</span><small>${done === total ? '本月全部繳完了 🎉' : '本月已繳'}</small></div><div class="bar"><i style="width:${pct}%"></i></div></div>` : ''}
     ${hero || (BILLS.length ? '<div class="empty">一個月內沒有要繳的帳單</div>'
-      : `<div class="hero"><div class="label">歡迎使用</div><div class="title">先把第一筆帳單<br>加進來吧</div><div class="caption">例如一張信用卡：填名稱和每月幾號截止就好，其他可以之後再補。</div><button class="pay" data-edit="">＋ 新增帳單</button></div>`)}
+      : `<div class="hero"><div class="label">歡迎使用</div><div class="title">先把第一筆帳單<br>加進來吧</div><div class="caption">例如一張信用卡：填名稱和每月幾號截止就好，其他可以之後再補。</div><button class="pay" onclick="openOnboarding()">開始設定</button></div>`)}
     ${now.length ? `<h2>今天要繳／已過期</h2>${now.map(card).join('')}` : ''}
     ${week.length ? `<h2>這 7 天內</h2>${week.map(card).join('')}` : ''}
     ${later.length ? `<h2>之後一個月</h2>${later.map(card).join('')}` : ''}
@@ -280,6 +282,7 @@ function billsView() {
     Object.entries(groups).map(([g, list]) => `<h2>${esc(g)}</h2>` + list.map(b =>
       `<div class="card" data-edit="${b.id}" style="cursor:pointer"><div class="info"><div class="name">${esc(billLabel(b))}</div><div class="meta">${rule(b)}${b.note ? '・' + esc(b.note) : ''}</div></div><span style="color:var(--soft)">›</span></div>`).join('')).join('') +
     `<div class="row"><button class="primary" data-edit="">＋ 新增帳單</button></div>` +
+    `<div class="row"><button class="secondary" onclick="openOnboarding()">用引導一次加很多筆</button></div>` +
     (DEMO ? '' : `<div class="row"><button class="secondary" id="logout">登出</button></div>`);
 }
 
