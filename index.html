@@ -333,8 +333,11 @@ function loginView() {
   };
 }
 (async () => {
-  if (!DEMO) sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_IN' && $('#nav').hidden) location.reload(); });
-  if (await store.init()) { $('#nav').hidden = false; refresh(); } else loginView();
+  let shown = false;
+  const showApp = () => { if (shown) return; shown = true; $('#nav').hidden = false; refresh(); };
+  // 回呼裡不能直接呼叫 Supabase（會卡住），用 setTimeout 移出去；也不再重新整理頁面，避免無限重載
+  if (!DEMO) sb.auth.onAuthStateChange((ev, session) => { if (session) setTimeout(showApp, 0); });
+  if (await store.init()) showApp(); else if (!shown) loginView();
 })();
 </script>
 </body>
